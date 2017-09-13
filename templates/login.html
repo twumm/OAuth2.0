@@ -68,6 +68,8 @@
             FB.AppEvents.logPageView();
         };
 
+
+        // Load the SDK asynchronously
         (function(d, s, id) {
             var js, fjs = d.getElementsByTagName(s)[0];
             if (d.getElementById(id)) {
@@ -78,6 +80,32 @@
             js.src = "//connect.facebook.net/en_US/sdk.js";
             fjs.parentNode.insertBefore(js, fjs);
         }(document, 'script', 'facebook-jssdk'));
+
+        // add script to redirect to main page after logging in
+        function statusChangeCallback(response) {
+            console.log('statusChangeCallback');
+            console.log(response);
+            if (response.status === 'connected') {
+                $('#result').html('Login Successful!</br>' + response + '</br>Redirecting...')
+                setTimeout(function() {
+                    window.location.href = "/restaurant";
+                }, 4000);
+            } else if (response.status === 'not_authorized') {
+                document.getElementById('status').innerHTML = 'Please log ' +
+                    'into this app.';
+            } else {
+                document.getElementById('status').innerHTML = 'Please log ' +
+                    'into Facebook.';
+            }
+        };
+
+        // Check the login status of the user
+        function checkLoginState() {
+            FB.getLoginStatus(function(response) {
+                statusChangeCallback(response);
+            });
+        }
+
 
         // Run a test of the Graph API after login is successful
         function sendTokenToServer() {
