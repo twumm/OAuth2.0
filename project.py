@@ -196,7 +196,7 @@ def fbconnect():
     result = h.request(url, 'GET')[1]
 
     # Use token to get user info from API
-    userinfor_url = "https://graph.facebook.com/v2.10/me"
+    userinfo_url = "https://graph.facebook.com/v2.10/me"
     # Strip expire tag from access token
     token = result.split(',')[0].split(':')[1].replace('"', '')
 
@@ -367,7 +367,6 @@ def showMenu(restaurant_id):
     restaurant = session.query(Restaurant).filter_by(id=restaurant_id).one()
     creator = getUserInfo(restaurant.user_id)
     items = session.query(MenuItem).filter_by(restaurant_id=restaurant_id).all()
-    console.log(restaurant)
     if 'username' not in login_session or creator.id != login_session['user_id']:
         return render_template('publicmenu.html', items=items, restaurant=restaurant,
                                creator=creator)
