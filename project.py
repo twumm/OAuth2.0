@@ -96,6 +96,7 @@ def gconnect():
     data = json.loads(answer.text)
 
     # Store the data in the login_session
+    login_session['provider'] = "google"
     login_session['username'] = data["name"]
     login_session['picture'] = data["picture"]
     login_session['email'] = data["email"]
@@ -182,6 +183,7 @@ def fbconnect():
         response.headers['Content-Type'] = 'application/json'
         return response
     access_token = request.data
+    print "access token received %s " % access_token
 
     # Exchange client token for long-lived server-side token with GET /oauth/access_token?grant_type
     # =fb_exchange_token&client_id={app-id}&client_secret={app-secret}&fb_exchange_token={short-lived-token}
@@ -196,7 +198,7 @@ def fbconnect():
     # Use token to get user info from API
     userinfor_url = "https://graph.facebook.com/v2.10/me"
     # Strip expire tag from access token
-    token = result.split("&")[0]
+    token = result.split(',')[0].split(':')[1].replace('"', '')
 
     url = "https://graph.facebook.com/v2.10/me?%s$fields=name,id,email" % token
     h = httplib2.Http()
@@ -204,11 +206,13 @@ def fbconnect():
     # Print "url sent for API access:%s" % url
     # Print "API JSON result: %s" % result
     data = json.loads(result)
-    # login_session['provider'] = 'facebook'
+    login_session['provider'] = 'facebook'
     login_session['username'] = data["name"]
     login_session['email'] = data["email"]
     login_session['facebook_id'] = data["id"]
 
+    # Store token in order to properly log out
+    login_session['access_token'] = token
 
     # Get user picture
     url = 'https://graph.facebook.com/v2.10/me/picture?%s&redirect=0&height=200&width=200' % token
@@ -233,20 +237,47 @@ def fbconnect():
     output += login_session['picture']
     output += ' " style="width: 300px; height: 300px; border-radius: 150px; -webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
 
+    flash("Now logged in as %s" % login_seesion['username'])
+    return output
+
 
 @app.route('/fbdisconnect')
 def fbdisconnect():
+    # print login_session
     facebook_id = login_session['facebook_id']
+    access_token = login_session['access_token']
     url = 'https://graph.facebook.com/%s/permissions' %facebook_id
     h = httplib2.Http()
     result = h.request(url, 'DELETE')[1]
-    del login_session['username']
-    del login_session['email']
-    del login_session['picture']
-    del login_session['user_id']
-    del login_session['facebook_id']
+    # del login_session['username']
+    # del login_session['email']
+    # del login_session['picture']
+    # del login_session['user_id']
+    # del login_session['facebook_id']
     return "You have been logged out"
 
+
+@app.route('/disconnect')
+def disconnect():
+    if 'provider' in login_session:
+        if login_session['provider'] == 'google':
+            gdisconnect()
+            del login_session['gplus_id']
+            del login_session['access_token']
+        if login_session['provider'] == 'facebook':
+            fbdisconnect()
+            del login_session['facebook_id']
+
+        del login_session['username']
+        del login_session['email']
+        del login_session['picture']
+        del login_session['user_id']
+        del login_session['provider']
+        flash("You have successfully been logged out.")
+        return redirect(url_for('showRestaurants'))
+    else:
+        flash("You were not logged in to begin with!")
+        redirect(url_for('showRestaurants')) 
 
 
 #JSON APIs to view Restaurant Information
@@ -275,7 +306,7 @@ def restaurantsJSON():
 def showRestaurants():
     restaurants = session.query(Restaurant).order_by(asc(Restaurant.name))
     if 'username' not in login_session:
-        return render_template('publicrestaurants.html, restaurants=restaurants')
+        return render_template('publicrestaurants.html', restaurants=restaurants)
     else:
         return render_template('restaurants.html', restaurants = restaurants)
 
@@ -336,12 +367,14 @@ def showMenu(restaurant_id):
     restaurant = session.query(Restaurant).filter_by(id=restaurant_id).one()
     creator = getUserInfo(restaurant.user_id)
     items = session.query(MenuItem).filter_by(restaurant_id=restaurant_id).all()
+    console.log(restaurant)
     if 'username' not in login_session or creator.id != login_session['user_id']:
         return render_template('publicmenu.html', items=items, restaurant=restaurant,
                                creator=creator)
     else:
         return render_template('menu.html', items=items, restaurant=restaurant,
-        creator=creator)
+                               creator=creator)
+    # return "This page is the menu for restaurant %s" %restaurant_id
      
 
 
